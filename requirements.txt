@@ -1,0 +1,7 @@
+plotly
+anywidget
+pandas
+polars
+numpy
+ipywidgets
+Jupyter-scatter[ALL]

@@ -1,0 +1,67 @@
+:host {
+  display: block;
+  margin: 0;
+  padding: 10px;
+  width: 100%;
+  min-height: 400px;
+}
+
+.nmf-widget-container {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.nmf-heatmap {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure Plotly plots render properly */
+.plotly-graph-div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Loading state */
+.nmf-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  font-family: Arial, sans-serif;
+  color: #666;
+  font-size: 16px;
+}
+
+.nmf-loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  margin-left: 10px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #666;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error state */
+.nmf-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  font-family: Arial, sans-serif;
+  color: #d32f2f;
+  background-color: #ffebee;
+  border: 1px solid #f8bbd9;
+  border-radius: 4px;
+}

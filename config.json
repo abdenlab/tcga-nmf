@@ -1,0 +1,10 @@
+{
+  "CSV_H_MATRIX_PATH": "all_H_component_contributions.csv",           
+  "NMF_H_MATRIX_PATH": "/path/to/full/H_k25.npy",
+  "TCGA_ZSCORES_PATH": "/path/to/TCGA_zscores.parquet",
+  "JSON_FILENAME_COMPONENT_COLORS": "nmf_component_color_map.json",
+  "JSON_FILENAME_VOCAB": "vocab.json",
+  "JSON_FILENAME_ORGAN_SYSTEM": "tissue_source_tcga.json",
+  "JSON_FILENAME_EMB": "emb.json",
+  "JSON_FILENAME_CANCER_TYPE_COLORS": "cancer_type_color_map.json"
+}
