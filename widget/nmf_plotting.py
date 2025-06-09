@@ -50,8 +50,8 @@ def create_nmf_heatmap_figure(cfg_path: str | Path = "config.json",
     # Create shortened labels (first 4 chars = cancer codes)
     x_labels_short = np.array([label[:4] for label in x_labels])
     
-    # Get ordered cancer types
-    cancer_types_sorted = np.array(cancer_types)[samp_order]
+    # Get ordered cancer types for reference (not used directly)
+    # cancer_types_sorted = np.array(cancer_types)[samp_order]
 
     # --- color preparation ---------------------------------------------- #
     cfg = load_cfg(cfg_path)
@@ -205,7 +205,7 @@ def _load_component_colors(json_filename: str, n_comps: int, comp_order: np.ndar
     return component_palette(n_comps)
 
 
-def _add_main_heatmap(fig: go.Figure, H_sorted: np.ndarray, comp_order: np.ndarray) -> None:
+def _add_main_heatmap(fig: go.Figure, H_sorted: np.ndarray, _: np.ndarray) -> None:
     """Add the main NMF activity heatmap."""
     fig.add_trace(
         go.Heatmap(
@@ -221,7 +221,7 @@ def _add_main_heatmap(fig: go.Figure, H_sorted: np.ndarray, comp_order: np.ndarr
 
 def _add_proportional_bar_chart(fig: go.Figure, H_sorted: np.ndarray, comp_colors: list, comp_order: np.ndarray) -> None:
     """Add stacked bar chart showing proportional NMF activity."""
-    n_samples, n_comps = H_sorted.shape
+    _, _ = H_sorted.shape  # n_samples and n_comps not needed
     
     # Normalize H to get proportions that sum to 1 for each sample
     H_proportional = H_sorted / H_sorted.sum(axis=1, keepdims=True)
@@ -409,7 +409,7 @@ def _add_annotation_strip_with_legend(fig: go.Figure, group_names: list, group_c
 
 
 def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int, 
-                      comp_order: np.ndarray, x_labels: np.ndarray,
+                      comp_order: np.ndarray, _: np.ndarray,
                       x_labels_short: np.ndarray, n_annotation_strips: int = 2) -> None:
     """Configure axes, layout, and styling with horizontal legends above the heatmap."""
     # Y-axis for main heatmap
@@ -448,7 +448,7 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
     legend_config = {}
     
     # Assign each trace in a legendgroup to a specific legend object
-    for i, trace in enumerate(fig.data):
+    for _, trace in enumerate(fig.data):
         if trace.legendgroup in legend_groups_info:
             group_name = trace.legendgroup
             legend_id = f"legend{list(legend_groups_info.keys()).index(group_name) + 1}"
@@ -471,6 +471,8 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
     # Overall layout configuration
     fig.update_layout(
         height=max(900, n_comps * 25 + 300),
+        width=1400,
+        autosize=True,  # Make figure responsive to container size
         margin=dict(l=80, r=80, t=200, b=100), # Increased top margin for legends
         title=dict(
             text="NMF Component Activities Across Samples",

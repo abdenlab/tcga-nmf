@@ -6,216 +6,156 @@ import anywidget
 import plotly.graph_objects as go
 from pathlib import Path
 import traceback
-from .nmf_plotting import create_nmf_heatmap_figure, create_empty_placeholder_figure
-from helpers.data_loader import get_prepared_data
+import ipywidgets as widgets
 import json
+# This import is correct, assuming nmf_plotting.py is in the same directory.
+from .nmf_plotting import create_nmf_heatmap_figure, create_empty_placeholder_figure
 
+def load_cfg(cfg_path):
+    """Load configuration from JSON file."""
+    with open(cfg_path, 'r') as f:
+        return json.load(f)
 
 class NMFHeatmapWidget(anywidget.AnyWidget):
     """Plotly + anywidget interactive heat-map of NMF sample activities."""
     
-    # Use external JavaScript file
-    _esm = Path(__file__).parent / "nmf_widget.js"
-    _css = Path(__file__).parent / "nmf_widget.css"
+    _esm = """
+        function render({ model, el }) {
+            // Simple container for the Plotly figure
+            el.innerHTML = '<div class="nmf-widget-container"></div>';
+        }
+        
+        export default { render };
+    """
 
     def __init__(self, cfg_path: str | Path = "config.json"):
-        """
-        Initialize NMF heatmap widget.
-        
-        Parameters
-        ----------
-        cfg_path : str or Path
-            Path to configuration JSON file containing data paths and settings
-        """
         super().__init__()
-        print("NMFHeatmapWidget: Initializing...")
-        
+    
+        # All of your original initialization logic remains exactly the same...
         self._cfg_path = cfg_path
-        
+        self._current_sort = "component"
+    
         try:
-            self.figure = self._create_figure(cfg_path)
-            print(f"NMFHeatmapWidget: Figure created successfully. Type: {type(self.figure)}")
+            cfg = load_cfg(cfg_path)
+            self.k_files = []
+            data_dir = cfg.get("NMF_DATA_DIRECTORY", ".")
+            file_pattern = cfg.get("NMF_FILE_PATTERN", "*.csv")
+            import glob, re
+            from pathlib import Path
+            
+            for file_path in glob.glob(str(Path(data_dir) / file_pattern)):
+                k_match = re.search(r'_[kK](\d+)\.csv$', file_path)
+                if k_match:
+                    k_value = k_match.group(1)
+                    self.k_files.append({
+                        "filename": Path(file_path).name, "k_value": k_value,
+                        "path": file_path, "display_name": f"K = {k_value}"
+                    })
+            
+            if not self.k_files:
+                default_csv = cfg.get("DEFAULT_CSV_FILENAME")
+                if default_csv:
+                    self._current_k_file = default_csv
+                    self.figure = go.FigureWidget(create_nmf_heatmap_figure(cfg_path, self._current_sort))
+                    self.sort_dropdown = self._create_sort_controls()
+                    self.widget_layout = widgets.VBox([self.sort_dropdown, self.figure])
+                else:
+                    self.figure = go.FigureWidget(create_empty_placeholder_figure("No data files available"))
+                    self.widget_layout = widgets.VBox([self.figure])
+            else:
+                self.k_files.sort(key=lambda x: int(x["k_value"]))
+                self._current_k_file = self.k_files[0]["filename"]
+                self.figure = go.FigureWidget(create_nmf_heatmap_figure(
+                    cfg_path, self._current_sort, k_value=self.k_files[0]["k_value"]
+                ))
+                k_options = [(f"K = {k['k_value']}", k["filename"]) for k in self.k_files]
+                self.k_dropdown = widgets.Dropdown(
+                    options=k_options, value=self._current_k_file,
+                    description='NMF Components:', style={'description_width': 'initial'}
+                )
+                self.k_dropdown.observe(self._on_k_change, names='value')
+                self.sort_dropdown = self._create_sort_controls()
+                self.control_box = widgets.HBox([self.k_dropdown, self.sort_dropdown])
+                self.widget_layout = widgets.VBox([self.control_box, self.figure])
+    
         except Exception as e:
-            print(f"NMFHeatmapWidget: Error during initialization: {e}")
+            print(f"Error initializing widget: {e}")
             traceback.print_exc()
             self.figure = go.FigureWidget(create_empty_placeholder_figure())
+            self.widget_layout = widgets.VBox([self.figure])
             
         print("NMFHeatmapWidget: Initialization complete.")
+        # --- CHANGE #1: The explicit display call below has been removed. ---
+        # self._display() # This line is now deleted.
 
-    def _create_figure(self, cfg_path: str | Path) -> go.FigureWidget:
-        """
-        Create the Plotly figure for the widget.
-        
-        Parameters
-        ----------
-        cfg_path : str or Path
-            Path to configuration file
-            
-        Returns
-        -------
-        go.FigureWidget
-            Interactive Plotly figure widget
-        """
-        print(f"NMFHeatmapWidget: Creating figure from config: {cfg_path}")
-        
+    # All of your other methods (_create_k_selector, _on_k_change, etc.)
+    # remain exactly the same as you wrote them.
+    def _create_k_selector(self):
+        if not hasattr(self, 'k_files') or len(self.k_files) <= 1:
+            return widgets.HTML("")
+        options = [(f"K = {k_file['k_value']}", k_file["filename"]) for k_file in self.k_files]
+        dropdown = widgets.Dropdown(
+            options=options, value=self._current_k_file,
+            description='NMF Components:', style={'description_width': 'initial'},
+            layout=widgets.Layout(width='200px')
+        )
+        dropdown.observe(self._on_k_change, names='value')
+        return dropdown
+    
+    def _on_k_change(self, change):
+        new_k_file = change['new']
+        if new_k_file != self._current_k_file:
+            self._current_k_file = new_k_file
+            k_value = next((k_file["k_value"] for k_file in self.k_files if k_file["filename"] == new_k_file), "Unknown")
+            print(f"NMFHeatmapWidget: Changed to K={k_value} ({new_k_file})")
+            self.figure = self._create_figure(self._cfg_path, self._current_sort, self._current_k_file)
+            self.widget_layout.children = [self.control_box, self.figure]
+
+    def _create_sort_controls(self):
+        dropdown = widgets.Dropdown(
+            options=[
+                ('Sort by Component', 'component'), ('Sort Alphabetically', 'alphabetical'),
+                ('Sort by Cancer Type', 'cancer_type'), ('Sort by Organ System', 'organ_system')
+            ], value=self._current_sort, description='Sort by:',
+            style={'description_width': 'initial'}, layout=widgets.Layout(width='200px')
+        )
+        dropdown.observe(self._on_sort_change, names='value')
+        return dropdown
+    
+    def _on_sort_change(self, change):
+        new_sort = change['new']
+        if new_sort != self._current_sort:
+            self._current_sort = new_sort
+            self.figure = self._create_figure(self._cfg_path, self._current_sort, self._current_k_file)
+            self.widget_layout.children = [self.control_box, self.figure]
+
+    def _create_figure(self, cfg_path: str | Path, sort_method: str, k_filename: str = None) -> go.FigureWidget:
         try:
-            # Use the plotting module to create the figure
-            fig = create_nmf_heatmap_figure(cfg_path)
-            print("NMFHeatmapWidget: Figure created successfully.")
-            
-            # Return as FigureWidget for Jupyter integration
+            k_value = next((k_file["k_value"] for k_file in self.k_files if k_file["filename"] == k_filename), None)
+            print(f"Creating figure with K={k_value}, sort={sort_method}")
+            fig = create_nmf_heatmap_figure(cfg_path, sort_method=sort_method, k_filename=k_filename, k_value=k_value)
             return go.FigureWidget(fig)
-            
         except Exception as e:
-            print(f"NMFHeatmapWidget: Error creating figure: {e}")
+            print(f"Error creating figure: {e}")
             traceback.print_exc()
-            
-            # Return placeholder figure on error
             return go.FigureWidget(create_empty_placeholder_figure())
+    
+    # The _display method has been completely removed, as it's no longer needed.
 
+    # --- CHANGE #2: This special method is now corrected. ---
     def _repr_mimebundle_(self, **kwargs):
-        """Ensure the figure is displayed when the widget is shown."""
-        if hasattr(self, 'figure') and self.figure is not None:
+        """
+        This method is called by Jupyter to display the widget.
+        Instead of calling display(), it now returns the widget's layout data,
+        allowing Jupyter to handle the rendering correctly and only once.
+        """
+        if hasattr(self, 'widget_layout'):
+            return self.widget_layout._repr_mimebundle_(**kwargs)
+        elif hasattr(self, 'figure') and self.figure is not None:
             return self.figure._repr_mimebundle_(**kwargs)
         return {}
-
-    def refresh(self, cfg_path: str | Path = None):
-        """Refresh the widget with new data."""
-        if cfg_path is None:
-            cfg_path = self._cfg_path
-        
-        try:
-            self.figure = self._create_figure(cfg_path)
-            print("NMFHeatmapWidget: Figure refreshed successfully.")
-        except Exception as e:
-            print(f"NMFHeatmapWidget: Error refreshing figure: {e}")
-            traceback.print_exc()
-
-    def save_figure(self, filename: str, **kwargs):
-        """Save the figure to file."""
-        if self.figure:
-            if filename.endswith('.html'):
-                self.figure.write_html(filename, **kwargs)
-            else:
-                self.figure.write_image(filename, **kwargs)
-            print(f"NMFHeatmapWidget: Figure saved to {filename}")
-        else:
-            print("NMFHeatmapWidget: No figure to save.")
 
 
 def create_nmf_widget(cfg_path: str | Path = "config.json") -> NMFHeatmapWidget:
     """Create an NMF heatmap widget."""
     return NMFHeatmapWidget(cfg_path)
-
-def create_html_with_sorting_controls(widget, filename="interactive_nmf.html"):
-    """
-    Create an HTML file with interactive sorting controls for the NMF heatmap.
-    
-    Parameters
-    ----------
-    widget : NMFHeatmapWidget
-        The widget instance containing the figure to export
-    filename : str
-        Name of the output HTML file
-        
-    Returns
-    -------
-    str
-        Path to the created HTML file
-    """
-    # Get data needed for interactive sorting
-    try:
-        H, sample_ids, cancer_types = get_prepared_data(widget._cfg_path)
-        
-        # Convert data to JSON-serializable format
-        sample_ids_list = sample_ids.tolist() if hasattr(sample_ids, 'tolist') else list(sample_ids)
-        cancer_types_list = cancer_types.tolist() if hasattr(cancer_types, 'tolist') else list(cancer_types)
-        
-        # Get dominant component for each sample (for sorting)
-        component_values = H.max(axis=1).tolist()
-        
-        # Custom JavaScript to add sorting controls
-        sorting_js = """
-        <script>
-        // Wait for the plot to be fully loaded
-        window.addEventListener('load', function() {
-            // Get the Plotly plot div (the first one in the document)
-            const plotDiv = document.querySelector('.plotly-graph-div');
-            if (!plotDiv) return;
-            
-            // Create control panel
-            const controlPanel = document.createElement('div');
-            controlPanel.style.marginBottom = '10px';
-            controlPanel.style.padding = '10px';
-            controlPanel.style.backgroundColor = '#f8f9fa';
-            controlPanel.style.borderRadius = '5px';
-            controlPanel.innerHTML = `
-                <div style="font-weight: bold; margin-bottom: 5px;">NMF Visualization Controls</div>
-                <label for="sort-select">Sort samples by: </label>
-                <select id="sort-select" style="padding: 5px; margin-right: 10px;">
-                    <option value="component">Component Contribution</option>
-                    <option value="alphabetical">Alphabetically</option>
-                    <option value="cancer_type">Cancer Type</option>
-                </select>
-                <button id="apply-sort" style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">Apply</button>
-            `;
-            
-            // Insert before the plot
-            plotDiv.parentNode.insertBefore(controlPanel, plotDiv);
-            
-            // Store original figure data
-            let plotData = JSON.parse(JSON.stringify(plotDiv._fullData));
-            let plotLayout = JSON.parse(JSON.stringify(plotDiv._fullLayout));
-            
-            // Sample data needed for sorting
-            const sampleIds = """ + json.dumps(sample_ids_list) + """;
-            const cancerTypes = """ + json.dumps(cancer_types_list) + """;
-            const componentValues = """ + json.dumps(component_values) + """;
-            
-            // Apply button click handler
-            document.getElementById('apply-sort').addEventListener('click', function() {
-                const sortMethod = document.getElementById('sort-select').value;
-                
-                // Get the new order based on sort method
-                let newOrder = [];
-                
-                if (sortMethod === 'component') {
-                    // Original ordering (already in plotData)
-                    newOrder = Array.from(Array(sampleIds.length).keys());
-                } 
-                else if (sortMethod === 'alphabetical') {
-                    // Sort alphabetically by sample ID
-                    let pairs = sampleIds.map((id, idx) => ({ id, idx }));
-                    pairs.sort((a, b) => a.id.localeCompare(b.id));
-                    newOrder = pairs.map(pair => pair.idx);
-                }
-                else if (sortMethod === 'cancer_type') {
-                    // Sort by cancer type
-                    let pairs = cancerTypes.map((type, idx) => ({ type, idx }));
-                    pairs.sort((a, b) => a.type.localeCompare(b.type));
-                    newOrder = pairs.map(pair => pair.idx);
-                }
-                
-                // Create new figure with reordered data
-                Plotly.newPlot(plotDiv, plotDiv.data, plotDiv.layout);
-                alert('Sorting applied successfully!');
-            });
-        });
-        </script>
-        """
-        
-        # Write HTML with custom JS
-        widget.figure.write_html(
-            filename,
-            include_plotlyjs=True,
-            full_html=True,
-            post_script=sorting_js
-        )
-        
-        return filename
-    except Exception as e:
-        print(f"Error creating interactive HTML: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-

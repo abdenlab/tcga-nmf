@@ -5,3 +5,4 @@ polars
 numpy
 ipywidgets
 Jupyter-scatter[ALL]
+umap-learn
