@@ -175,42 +175,15 @@ def create_nmf_scatter_visualization(cfg_path="config.json", sort_method="compon
         
         # Add selection callback for responsiveness
         plotly_fig.update_traces(
-            customdata=sample_ids,  
-            hovertemplate='Sample: %{customdata}<br>Component: %{y}<br>Value: %{z:.3f}<extra></extra>'
+            customdata=sample_ids,  # Use sample IDs for selection
+            hovertemplate='Sample: %{x}<br>Component: %{y}<br>Value: %{z:.3f}<extra></extra>'
         )
         
         display(plotly_fig)
     
-    # Create UMAP visualization with lasso selection enabled
+    # Create UMAP visualization
     umap_scatter, umap_df = create_umap_visualization(h_matrix, sample_ids, cancer_types, cancer_color_map)
     
-    # Enable and configure lasso selection
-    umap_scatter.options({
-        'regl_scatterplot_options': {
-            'selection': {
-                'type': 'lasso',
-                'enable': True,
-                'width': 2,
-                'color': 'rgba(50, 50, 50, 0.8)',
-                'brushFilter': True
-            }
-        }
-    })
-    
-    umap_scatter.tooltip(
-        properties=["Sample ID", "Cancer Type", "Emb Origin", "Organ System"]
-    ).size(
-        default=5
-    ).options({
-        'aspectRatio': 1.0,
-        'regl_scatterplot_options': {
-            'showLegend': True,
-            'xAxis': {'showGrid': True},
-            'yAxis': {'showGrid': True},
-            'title': 'UMAP of NMF Components'
-        }
-    })
- 
     # Create data table output for showing selection details
     data_table_output = Output()
     with data_table_output:
@@ -245,80 +218,16 @@ def create_nmf_scatter_visualization(cfg_path="config.json", sort_method="compon
                 # Filter UMAP to show only selected samples
                 filtered_df = original_umap_df[original_umap_df["Sample ID"].isin(selected_sample_ids)]
                 umap_scatter.data = filtered_df
-                
-                # Get indices of selected samples to adjust zoom
-                selected_indices = [i for i, sid in enumerate(sample_ids) if sid in selected_sample_ids]
-                
-                if selected_indices:
-                    # Adjust plotly view to focus on selection
-                    min_idx = max(0, min(selected_indices) - 3)  # Add padding
-                    max_idx = min(len(sample_ids) - 1, max(selected_indices) + 3)
-                    
-                    # Update x-axis range for all relevant subplots
-                    for i in range(1, 7):  # For xaxis1 through xaxis6
-                        axis_key = f"xaxis{i}" if i > 1 else "xaxis"
-                        plotly_fig.layout[axis_key].range = [min_idx, max_idx]
             else:
                 # Reset to all samples
                 umap_scatter.data = original_umap_df
-                
-                # Reset axes to auto-range
-                for i in range(1, 7):
-                    axis_key = f"xaxis{i}" if i > 1 else "xaxis"
-                    if axis_key in plotly_fig.layout:
-                        plotly_fig.layout[axis_key].autorange = True
-        elif source == "umap":
-            # When selection comes from UMAP, highlight those points in the heatmap
-            if selected_sample_ids:
-                # Find indices in the heatmap that match selected sample IDs
-                selected_indices = [i for i, sid in enumerate(sample_ids) if sid in selected_sample_ids]
-                
-                if selected_indices:
-                    # Update selected points in all traces
-                    for trace in plotly_fig.data:
-                        if hasattr(trace, 'selectedpoints'):
-                            trace.selectedpoints = selected_indices
-                    
-                    # Adjust plotly view to focus on selection
-                    min_idx = max(0, min(selected_indices) - 3)  # Add padding
-                    max_idx = min(len(sample_ids) - 1, max(selected_indices) + 3)
-                    
-                    # Update x-axis range for all relevant subplots to focus on selection
-                    for i in range(1, 7):
-                        axis_key = f"xaxis{i}" if i > 1 else "xaxis"
-                        if axis_key in plotly_fig.layout:
-                            plotly_fig.layout[axis_key].range = [min_idx, max_idx]
-                else:
-                    # Clear selection if no valid indices
-                    for trace in plotly_fig.data:
-                        if hasattr(trace, 'selectedpoints'):
-                            trace.selectedpoints = None
-            else:
-                # Reset when no samples are selected
-                for trace in plotly_fig.data:
-                    if hasattr(trace, 'selectedpoints'):
-                        trace.selectedpoints = None
-                
-                # Reset axes to auto-range
-                for i in range(1, 7):
-                    axis_key = f"xaxis{i}" if i > 1 else "xaxis"
-                    if axis_key in plotly_fig.layout:
-                        plotly_fig.layout[axis_key].autorange = True
     
     # Connect selection callbacks
     # For Plotly heatmap
     def on_plotly_selection(trace, points, selector):
         if hasattr(points, 'point_inds') and points.point_inds:
-            # Get the correct customdata from points
-            selection = []
-            for ind in points.point_inds:
-                # Make sure to handle customdata correctly
-                if hasattr(points, 'customdata') and points.customdata:
-                    if ind < len(points.customdata):
-                        selection.append(points.customdata[ind])
-                elif hasattr(trace, 'customdata') and trace.customdata:
-                    if ind < len(trace.customdata):
-                        selection.append(trace.customdata[ind])
+            # Extract sample IDs from customdata
+            selection = [points.data[ind].customdata for ind in points.point_inds]
         else:
             selection = []
         update_selection("heatmap", selection)
@@ -333,25 +242,11 @@ def create_nmf_scatter_visualization(cfg_path="config.json", sort_method="compon
         selection_indices = change.new
         if selection_indices is not None and len(selection_indices) > 0:
             # Get sample IDs from current scatter data
-            try:
-                current_df = umap_scatter.data
-                # Check if we need to get the DataFrame from a callable
-                if callable(current_df):
-                    current_df = current_df()
-                
-                # Ensure selection indices are within bounds
-                valid_indices = [i for i in selection_indices if i < len(current_df)]
-                if valid_indices:
-                    selected_samples = current_df.iloc[valid_indices]["Sample ID"].tolist()
-                    # Call update_selection with the selected samples
-                    update_selection("umap", selected_samples)
-                else:
-                    update_selection("umap", [])
-            except Exception as e:
-                print(f"Error processing UMAP selection: {e}")
-                update_selection("umap", [])
+            selection = umap_scatter.data.iloc[selection_indices]["Sample ID"].tolist()
         else:
-            update_selection("umap", [])
+            selection = []
+        update_selection("umap", selection)
+    
     umap_scatter.widget.observe(on_umap_selection, names=["selection"])
     
     # Create layout with heatmap on top, UMAP and data table side by side below
