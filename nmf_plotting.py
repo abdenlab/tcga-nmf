@@ -467,7 +467,7 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
     # Overall layout configuration
     fig.update_layout(
         height=max(900, n_comps * 25 + 300),
-        widht
+        width=1200,
         
         margin=dict(l=80, r=80, t=200, b=100), # Increased top margin for legends
         title=dict(

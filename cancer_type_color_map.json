@@ -1,8 +1,8 @@
 {
   "LAML": "#8dd3c7",
-  "ACC":  "#ffffb3",
+  "ACCx":  "#ffffb3",
   "BLCA": "#bebada",
-  "LGG":  "#fb8072",
+  "LGGx":  "#fb8072",
   "BRCA": "#80b1d3",
   "CESC": "#fdb462",
   "CHOL": "#b3de69",
@@ -11,7 +11,7 @@
   "CNTL": "#ccebc5",
   "ESCA": "#ffed6f",
   "FPPP": "#a6cee3",
-  "GBM":  "#1f78b4",
+  "GBMx":  "#1f78b4",
   "HNSC": "#b2df8a",
   "KICH": "#33a02c",
   "KIRC": "#fb9a99",
@@ -22,7 +22,7 @@
   "DLBC": "#6a3d9a",
   "MESO": "#ffff99",
   "MISC": "#b15928",
-  "OV":   "#1b9e77",
+  "OVxx":   "#1b9e77",
   "PAAD": "#d95f02",
   "PCPG": "#7570b3",
   "PRAD": "#e7298a",
@@ -33,7 +33,7 @@
   "TGCT": "#e41a1c",
   "THYM": "#377eb8",
   "THCA": "#4daf4a",
-  "UCS":  "#984ea3",
+  "UCSx":  "#984ea3",
   "UCEC": "#ffff33",
-  "UVM":  "#8da0cb"
+  "UVMx":  "#8da0cb"
 }

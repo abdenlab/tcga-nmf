@@ -7,26 +7,39 @@ from plotly.subplots import make_subplots
 from pathlib import Path
 import numpy as np
 import json
-from helpers.data_loader import get_prepared_data, load_cfg
-from helpers.sort_utils import get_sample_order
+from helpers.data_loader import get_prepared_data, load_cfg 
+from helpers.sort_utils import get_sample_order 
 from helpers.color_utils import (
     component_palette,
     distinct_palette,
     load_cancer_colors
-)
+) 
 
 
 def create_nmf_heatmap_figure(cfg_path: str | Path = "config.json", 
-                             sort_method: str = "component") -> go.Figure:
+                             sort_method: str = "component",
+                             k_filename: str = None, 
+                             # FIX: Added the missing parameters to the function signature
+                             all_sample_ids: list[str] = None, 
+                             current_heatmap_samp_order_indices: np.ndarray = None, 
+                             selected_sample_ids: list[str] = None) -> go.Figure: 
     """
     Create a complete NMF heatmap figure with component and cancer type strips.
     
     Parameters
     ----------
     cfg_path : str or Path
-        Path to configuration JSON file
+        Path to configuration file
     sort_method : str
         Sorting method to use: "component", "alphabetical", "cancer_type", or "organ_system"
+    k_filename : str, optional
+        Specific K-value CSV filename to load. If None, uses the default from config.
+    all_sample_ids : list[str]
+        List of all sample IDs in their original, unsorted order from the loaded K-file. Used for highlighting.
+    current_heatmap_samp_order_indices : np.ndarray
+        NumPy array of indices indicating the current sort order of samples on the heatmap.
+    selected_sample_ids : list[str], optional
+        List of sample IDs to highlight on the heatmap.
         
     Returns
     -------
@@ -34,53 +47,42 @@ def create_nmf_heatmap_figure(cfg_path: str | Path = "config.json",
         Plotly figure with NMF heatmap and annotation strips
     """
     # --- load data ------------------------------------------------------ #
-    H, sample_ids, cancer_types = get_prepared_data(cfg_path)
+    H, sample_ids_from_file, cancer_types = get_prepared_data(cfg_path, k_filename=k_filename) 
     n_samples, n_comps = H.shape
 
     # --- ordering ------------------------------------------------------- #
     comp_order = np.argsort(-H.sum(axis=0))
     H_ord = H[:, comp_order]
     
-    # Get sample order based on selected method
-    samp_order = get_sample_order(sort_method, H, sample_ids, cancer_types, cfg_path)
+    samp_order_indices = get_sample_order(sort_method, H, sample_ids_from_file, cancer_types, cfg_path) 
     
-    H_sorted = H_ord[samp_order]
-    x_labels = np.array(sample_ids)[samp_order]
+    H_sorted = H_ord[samp_order_indices]
+    x_labels = np.array(sample_ids_from_file)[samp_order_indices]
     
-    # Create shortened labels (first 4 chars = cancer codes)
     x_labels_short = np.array([label[:4] for label in x_labels])
     
-    # Get ordered cancer types for reference (not used directly)
-    # cancer_types_sorted = np.array(cancer_types)[samp_order]
-
     # --- color preparation ---------------------------------------------- #
-    cfg = load_cfg(cfg_path)
+    cfg = load_cfg(cfg_path) 
     
-    # Make sure this matches the key in your config.json
-    component_color_file = cfg.get("JSON_FILENAME_COMPONENT_COLORS", "nmf_component_color_map.json")
+    component_color_file = cfg.get("JSON_FILENAME_COMPONENT_COLORS", "nmf_component_color_map.json") 
     print(f"Loading component colors from: {component_color_file}")
     
-    # Load component colors from JSON file
     comp_colors = _load_component_colors(component_color_file, n_comps, comp_order)
     
-    # Cancer color mapping
-    user_cancer_colors = load_cancer_colors(cfg.get("JSON_FILENAME_CANCER_TYPE_COLORS"))
+    user_cancer_colors = load_cancer_colors(cfg.get("JSON_FILENAME_CANCER_TYPE_COLORS")) 
     uniq_cancers = sorted(set(cancer_types))
-    auto_cancer_palette = distinct_palette(len(uniq_cancers))
+    auto_cancer_palette = distinct_palette(len(uniq_cancers)) 
     cancer_color_map = {
         ct: user_cancer_colors.get(ct, auto_cancer_palette[i])
         for i, ct in enumerate(uniq_cancers)
     }
     
-    # Load organ system groupings
-    organ_system_file = cfg.get("JSON_FILENAME_ORGAN_SYSTEM", "tissue_source_tcga.json")
+    organ_system_file = cfg.get("JSON_FILENAME_ORGAN_SYSTEM", "tissue_source_tcga.json") 
     organ_system_data = _load_organ_system_data(organ_system_file)
 
-    # Load embryonic layer groupings
-    embryonic_layer_file = cfg.get("JSON_FILENAME_EMBRYONIC_LAYER", "emb.json")
+    embryonic_layer_file = cfg.get("JSON_FILENAME_EMBRYONIC_LAYER", "emb.json") 
     embryonic_layer_data = _load_organ_system_data(embryonic_layer_file)
 
-    # Map cancer codes to organ systems and embryonic layers
     cancer_codes = x_labels_short
     organ_systems, organ_system_colors = _map_cancer_codes_to_organ_systems(cancer_codes, organ_system_data)
     embryonic_layers, embryonic_layer_colors = _map_cancer_codes_to_organ_systems(cancer_codes, embryonic_layer_data)
@@ -95,17 +97,26 @@ def create_nmf_heatmap_figure(cfg_path: str | Path = "config.json",
                         "Cancer Type", "Organ System", "Embryonic Layer")
     )
 
-    # 1) Main heatmap
-    _add_main_heatmap(fig, H_sorted, comp_order)
+    # 1) Main heatmap - This is the first trace, used for selection
+    fig.add_trace( 
+        go.Heatmap(
+            z=H_sorted.T,
+            colorscale="Turbo",
+            colorbar=dict(title="Activity", x=1.02),
+            showscale=False,
+            hovertemplate="Sample: %{x}<br>Component: %{y}<br>Activity: %{z}<extra></extra>",
+        ),
+        row=1, col=1
+    )
     
     # 2) Stacked bar chart showing proportional NMF activity
     _add_proportional_bar_chart(fig, H_sorted, comp_colors, comp_order)
     
     # 3) Component strip with legend
-    _add_component_strip_with_legend(fig, H_ord, samp_order, comp_colors, n_comps, comp_order)
+    _add_component_strip_with_legend(fig, H_ord, samp_order_indices, comp_colors, n_comps, comp_order)
     
     # 4) Cancer type strip with legend
-    _add_cancer_strip_with_legend(fig, cancer_types, samp_order, uniq_cancers, cancer_color_map)
+    _add_cancer_strip_with_legend(fig, cancer_types, samp_order_indices, uniq_cancers, cancer_color_map)
     
     # 5) Organ system strip with legend
     _add_annotation_strip_with_legend(fig, organ_systems, organ_system_colors, 
@@ -114,6 +125,10 @@ def create_nmf_heatmap_figure(cfg_path: str | Path = "config.json",
     # 6) Embryonic layer strip with legend
     _add_annotation_strip_with_legend(fig, embryonic_layers, embryonic_layer_colors, 
                                       "Embryonic Layer", row=6, col=1)
+
+    # NEW: Add highlighting layer if selected_sample_ids are provided
+    if selected_sample_ids:
+        _add_highlight_layer(fig, all_sample_ids, current_heatmap_samp_order_indices, selected_sample_ids, n_comps)
     
     # 7) Layout and styling
     _configure_layout(fig, n_comps, n_samples, comp_order, x_labels, x_labels_short, 
@@ -165,19 +180,16 @@ def _load_component_colors(json_filename: str, n_comps: int, comp_order: np.ndar
                 
             print(f"Loaded component colors: {color_map}")
             ordered_colors = []
-            auto_colors = component_palette(n_comps)
+            auto_colors = component_palette(n_comps) 
             
-            # Create a mapping dictionary for debugging
             component_color_mapping = {}
             
             for i in comp_order:
-                # Try all possible key formats
                 comp_name = f"Comp_{i}"
                 alt_name1 = f"Component {i+1}"
                 alt_name2 = f"Comp {i+1}"
                 alt_name3 = str(i+1)
                 
-                # Look for matching keys in the JSON
                 color = (color_map.get(comp_name) or 
                          color_map.get(alt_name1) or 
                          color_map.get(alt_name2) or 
@@ -185,7 +197,6 @@ def _load_component_colors(json_filename: str, n_comps: int, comp_order: np.ndar
                 
                 if color:
                     ordered_colors.append(color)
-                    # Record which key format was successful
                     matched_key = next(k for k in [comp_name, alt_name1, alt_name2, alt_name3] 
                                       if k in color_map and color_map[k] == color)
                     component_color_mapping[f"Component {i+1}"] = {'color': color, 'matched_key': matched_key}
@@ -202,36 +213,21 @@ def _load_component_colors(json_filename: str, n_comps: int, comp_order: np.ndar
         import traceback
         traceback.print_exc()
     
-    return component_palette(n_comps)
+    return component_palette(n_comps) 
 
 
 def _add_main_heatmap(fig: go.Figure, H_sorted: np.ndarray, _: np.ndarray) -> None:
-    """Add the main NMF activity heatmap."""
-    fig.add_trace(
-        go.Heatmap(
-            z=H_sorted.T,
-            colorscale="Turbo",
-            colorbar=dict(title="Activity", x=1.02),
-            showscale=False,
-            hovertemplate="Sample: %{x}<br>Component: %{y}<br>Activity: %{z}<extra></extra>"
-        ),
-        row=1, col=1
-    )
+    pass 
 
 
 def _add_proportional_bar_chart(fig: go.Figure, H_sorted: np.ndarray, comp_colors: list, comp_order: np.ndarray) -> None:
-    """Add stacked bar chart showing proportional NMF activity."""
-    _, _ = H_sorted.shape  # n_samples and n_comps not needed
+    _, _ = H_sorted.shape  
     
-    # Normalize H to get proportions that sum to 1 for each sample
     H_proportional = H_sorted / H_sorted.sum(axis=1, keepdims=True)
     
-    # For each component, create a trace in the stacked bar chart
     for i, comp_idx in enumerate(comp_order):
-        # Use the same color as in the heatmap
         color = comp_colors[i]
         
-        # Fix: Create the hover template with proper component number
         comp_name = f"Comp {comp_idx+1}"
         hover_template = f"Sample: %{{x}}<br>Component: {comp_name}<br>Proportion: %{{y:.2f}}<extra></extra>"
         
@@ -240,12 +236,11 @@ def _add_proportional_bar_chart(fig: go.Figure, H_sorted: np.ndarray, comp_color
                 y=H_proportional[:, i],
                 name=comp_name,
                 marker_color=color,
-                hovertemplate=hover_template  # Use the fixed hover template
+                hovertemplate=hover_template
             ),
             row=2, col=1
         )
     
-    # Set bar chart layout
     fig.update_layout(
         barmode='stack',
         showlegend=True,
@@ -258,7 +253,6 @@ def _add_proportional_bar_chart(fig: go.Figure, H_sorted: np.ndarray, comp_color
         )
     )
     
-    # Hide y-axis for stacked bar chart
     fig.update_yaxes(
         title="Proportion", 
         range=[0, 1],
@@ -269,28 +263,19 @@ def _add_proportional_bar_chart(fig: go.Figure, H_sorted: np.ndarray, comp_color
 def _add_component_strip_with_legend(fig: go.Figure, H_ord: np.ndarray, samp_order: np.ndarray, 
                                     comp_colors: list, n_comps: int, comp_order: np.ndarray) -> None:
     """Add component strip with interactive legend."""
-    # The winning component indices in the REORDERED matrix
     winning_comp_indices = np.argmax(H_ord[samp_order], axis=1)
-    
-    # Map these indices to the original component numbers for display
     winning_comp_numbers = np.array([comp_order[i] + 1 for i in winning_comp_indices])
     
-    # Create a direct mapping between component index and color
-    # This is the critical fix - we need to map each winning index directly to its color
     idx_to_color = {i: comp_colors[i] for i in range(n_comps)}
     
-    # Create the colorscale that maps each index directly to its color
-    # Instead of evenly spacing them, we need exact index->color mapping
     comp_scale = []
     for i in range(n_comps):
         if i == 0:
             comp_scale.append((0, idx_to_color[i]))
         else:
-            # Create boundaries around each index to ensure exact color mapping
             comp_scale.append(((i-0.5)/(n_comps-1), idx_to_color[i-1]))
             comp_scale.append(((i)/(n_comps-1), idx_to_color[i]))
     
-    # Add the final boundary if needed
     if n_comps > 1:
         comp_scale.append((1, idx_to_color[n_comps-1]))
     
@@ -306,7 +291,6 @@ def _add_component_strip_with_legend(fig: go.Figure, H_ord: np.ndarray, samp_ord
         row=3, col=1
     )
     
-    # Add component legend items without assigning to a subplot
     for i, comp_idx in enumerate(comp_order):
         fig.add_trace(
             go.Scatter(
@@ -343,7 +327,6 @@ def _add_cancer_strip_with_legend(fig: go.Figure, cancer_types: list, samp_order
         row=4, col=1
     )
     
-    # Add cancer type legend items without assigning to a subplot
     for cancer in uniq_cancers:
         fig.add_trace(
             go.Scatter(
@@ -354,20 +337,17 @@ def _add_cancer_strip_with_legend(fig: go.Figure, cancer_types: list, samp_order
                 legendgroup="Cancer Types",
                 showlegend=True
             )
-            # No row/col assignment here
         )
 
 
 def _add_annotation_strip_with_legend(fig: go.Figure, group_names: list, group_colors: list, 
                                       label: str, row: int, col: int) -> None:
     """Add annotation strip (organ system/embryonic layer) with interactive legend."""
-    # Create a sorted list of unique groups for consistent ordering
     unique_groups = sorted(list(set(group_names)))
     group_to_idx = {group: i for i, group in enumerate(unique_groups)}
     
     group_idx_arr = [group_to_idx[group] for group in group_names]
     
-    # Create a stable mapping from group name to color
     unique_colors = {}
     for group_name, color in zip(group_names, group_colors):
         if group_name not in unique_colors:
@@ -377,7 +357,6 @@ def _add_annotation_strip_with_legend(fig: go.Figure, group_names: list, group_c
     if n_groups == 1:
         group_scale = [(0, unique_colors[unique_groups[0]]), (1, unique_colors[unique_groups[0]])]
     else:
-        # Build colorscale from the sorted unique groups
         group_scale = [(i/(n_groups-1), unique_colors[ug]) for i, ug in enumerate(unique_groups)]
     
     fig.add_trace(
@@ -392,9 +371,8 @@ def _add_annotation_strip_with_legend(fig: go.Figure, group_names: list, group_c
         row=row, col=col
     )
     
-    # Add legend items without assigning to a subplot
     for group in unique_groups:
-        color = unique_colors.get(group, "#CCCCCC") # Fallback color
+        color = unique_colors.get(group, "#CCCCCC") 
         fig.add_trace(
             go.Scatter(
                 x=[None], y=[None],
@@ -404,15 +382,42 @@ def _add_annotation_strip_with_legend(fig: go.Figure, group_names: list, group_c
                 legendgroup=label,
                 showlegend=True
             )
-            # No row/col assignment here
         )
+
+
+def _add_highlight_layer(fig: go.Figure, all_sample_ids_original_order: list[str], 
+                         current_heatmap_samp_order_indices: np.ndarray, 
+                         selected_sample_ids: list[str], n_comps: int) -> None:
+    """
+    Adds a translucent highlight layer over selected samples on the main heatmap.
+    """
+    if not selected_sample_ids:
+        return
+
+    is_selected_in_original_order = np.array([sid in selected_sample_ids for sid in all_sample_ids_original_order])
+    
+    is_selected_on_heatmap = is_selected_in_original_order[current_heatmap_samp_order_indices]
+
+    highlight_mask = np.zeros((n_comps, len(current_heatmap_samp_order_indices)))
+    for i, is_selected in enumerate(is_selected_on_heatmap):
+        if is_selected:
+            highlight_mask[:, i] = 1 
+
+    fig.add_trace(
+        go.Heatmap(
+            z=highlight_mask,
+            colorscale=[[0, 'rgba(0,0,0,0)'], [1, 'rgba(255,255,0,0.3)']], 
+            showscale=False,
+            hoverinfo='skip'
+        ),
+        row=1, col=1
+    )
 
 
 def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int, 
                       comp_order: np.ndarray, _: np.ndarray,
                       x_labels_short: np.ndarray, n_annotation_strips: int = 2) -> None:
     """Configure axes, layout, and styling with horizontal legends above the heatmap."""
-    # Y-axis for main heatmap
     fig.update_yaxes(
         tickmode="array",
         tickvals=list(range(n_comps)),
@@ -420,7 +425,6 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
         row=1, col=1
     )
     
-    # X-axes configuration
     total_rows = n_annotation_strips + 4
     for r in range(1, total_rows):
         fig.update_xaxes(showticklabels=False, row=r, col=1)
@@ -433,11 +437,9 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
         row=total_rows, col=1
     )
     
-    # Hide y-axis labels for bar chart and all strips
     for r in range(2, total_rows + 1):
         fig.update_yaxes(showticklabels=False, row=r, col=1)
     
-    # Define layout for multiple, separate, horizontal legends
     legend_groups_info = {
         "Components": {"y": 1.22, "x": 0.0,  "title": "NMF Components"},
         "Cancer Types": {"y": 1.22, "x": 0.22, "title": "Cancer Types"},
@@ -447,14 +449,12 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
     
     legend_config = {}
     
-    # Assign each trace in a legendgroup to a specific legend object
     for _, trace in enumerate(fig.data):
         if trace.legendgroup in legend_groups_info:
             group_name = trace.legendgroup
             legend_id = f"legend{list(legend_groups_info.keys()).index(group_name) + 1}"
             trace.legend = legend_id
             
-            # Create the legend object if it doesn't exist
             if legend_id not in legend_config:
                 info = legend_groups_info[group_name]
                 legend_config[legend_id] = dict(
@@ -468,12 +468,11 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
                     bgcolor="rgba(255,255,255,0)",
                 )
 
-    # Overall layout configuration
     fig.update_layout(
         height=max(900, n_comps * 25 + 300),
         width=1400,
-        autosize=True,  # Make figure responsive to container size
-        margin=dict(l=80, r=80, t=200, b=100), # Increased top margin for legends
+        autosize=True,  
+        margin=dict(l=80, r=80, t=200, b=100), 
         title=dict(
             text="NMF Component Activities Across Samples",
             y=0.99,
@@ -482,15 +481,18 @@ def _configure_layout(fig: go.Figure, n_comps: int, n_samples: int,
             yanchor="top"
         ),
         barmode="stack",
-        **legend_config  # Unpack all configured legend objects
+        hovermode="x unified",
+        selectdirection="h",
+        dragmode="select", 
+        **legend_config  
     )
 
 
-def create_empty_placeholder_figure() -> go.Figure:
+def create_empty_placeholder_figure(message="Error loading NMF data") -> go.Figure:
     """Create an empty placeholder figure for error cases."""
     fig = go.Figure()
     fig.add_annotation(
-        text="Error loading NMF data",
+        text=message, 
         xref="paper", yref="paper",
         x=0.5, y=0.5, xanchor='center', yanchor='middle',
         showarrow=False,
