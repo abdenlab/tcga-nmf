@@ -1,11 +1,8 @@
-import umap
-import numpy as np
-import pandas as pd
 import jscatter
+import pandas as pd
 import seaborn as sns
+import umap
 import warnings
-from ipywidgets import Output
-from IPython.display import clear_output, display
 
 
 def perform_umap_reduction(data, n_components=2, random_state=42):
@@ -63,9 +60,11 @@ def create_umap_visualization(h_matrix, sample_ids, cancer_types, cancer_color_m
         selection_mode="lasso",  # Explicitly set lasso mode
     )
 
-    scatter_plot.tooltip(properties=["Sample ID", "Cancer Type"]).size(
+    scatter_plot.tooltip(properties=["Sample ID", "Cancer Type"])
+    scatter_plot.size(
         default=5
-    ).options(
+    )
+    scatter_plot.options(
         {
             "aspectRatio": 1.0,
             "regl_scatterplot_options": {

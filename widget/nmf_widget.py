@@ -14,8 +14,8 @@ from traitlets import List, observe
 
 # FIX: Explicitly import ALL functions from nmf_plotting and helpers modules
 # that are directly called within NMFHeatmapWidget methods.
-from .nmf_plotting import create_nmf_heatmap_figure, create_empty_placeholder_figure
-from helpers.data_loader import discover_nmf_k_files, get_prepared_data, load_cfg
+from ..nmf_vis_app.heatmap import create_heatmap_figure, create_empty_placeholder_figure
+from nmf_vis_app.data_utils import discover_nmf_k_files, _get_prepared_data, load_cfg
 from helpers.sort_utils import get_sample_order  # FIX: Import get_sample_order
 
 
@@ -185,7 +185,7 @@ class NMFHeatmapWidget(anywidget.AnyWidget):
             )
             self._current_heatmap_sample_order_indices = current_samp_order_indices
 
-            new_fig = create_nmf_heatmap_figure(
+            new_fig = create_heatmap_figure(
                 cfg_path=self._cfg_path,
                 sort_method=self._current_sort,
                 k_filename=self._current_k_file,

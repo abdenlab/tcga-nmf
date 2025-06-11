@@ -52,8 +52,7 @@ def get_organ_system_sort(
     H: np.ndarray, cancer_types: list, sample_ids: list, config_path: str
 ) -> np.ndarray:
     """Correctly sort by organ system, then by component within each group."""
-    from helpers.data_loader import load_cfg
-
+    from nmf_vis_app.data_utils import load_cfg
     try:
         cfg = load_cfg(config_path)
         # It's safer to use the sample_ids to map to cancer codes than the full cancer_types string

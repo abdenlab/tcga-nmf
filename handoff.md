@@ -16,7 +16,7 @@ Interactive visualization tool for Non-negative Matrix Factorization (NMF) resul
 
 ### Visualization Components
 - `nmf_plotting.py`:
-    - `create_nmf_heatmap_figure()` - Generates main heatmap with 6 subplots
+    - `create_heatmap_figure()` - Generates main heatmap with 6 subplots
     - `_add_main_heatmap()` - Core heatmap rendering (performance bottleneck)
     - `_add_proportional_bar_chart()` - Adds stacked bar chart of activities
     - `_add_*_strip_with_legend()` - Creates annotation strips (components, cancer types, etc.)
@@ -27,7 +27,7 @@ Interactive visualization tool for Non-negative Matrix Factorization (NMF) resul
 
 ### Interactivity Framework
 - `scatter_plot_utils.py`:
-    - `create_nmf_scatter_visualization()` - **MAIN ENTRY POINT** - Creates complete visualization
+    - `create_scatterplot()` - **MAIN ENTRY POINT** - Creates complete visualization
     - `update_selection()` - Key bidirectional function that propagates selections
     - `on_plotly_selection()` - Handles selection events from heatmap
     - `on_umap_selection()` - Handles selection events from UMAP scatter
@@ -65,7 +65,7 @@ Interactive visualization tool for Non-negative Matrix Factorization (NMF) resul
 2. Typical implementation path:
     - Configure via `config.json` (data paths, component counts, etc.)
     - Load data through `data_loader.py`
-    - Create visualizations with `create_nmf_scatter_visualization()`
+    - Create visualizations with `create_scatterplot()`
     - Connect interactive elements via callbacks in Jupyter
 3. Testing workflow:
     - Make code changes
