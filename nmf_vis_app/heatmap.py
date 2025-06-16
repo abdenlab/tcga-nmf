@@ -14,14 +14,11 @@ from helpers.color_utils import component_palette, distinct_palette, load_cancer
 
 
 def create_heatmap(cfg_path="config.json", sort_method="component", sample_ids=None):
-
     if sample_ids is None:
         heatmap_widget = FigureWidget(create_heatmap_figure(cfg_path, sort_method))
     else:
         heatmap_widget = FigureWidget(
-            create_heatmap_figure(
-                cfg_path, sort_method, selected_sample_ids=sample_ids
-            )
+            create_heatmap_figure(cfg_path, sort_method, selected_sample_ids=sample_ids)
         )
 
     heatmap_widget.update_layout(
@@ -68,7 +65,7 @@ def create_heatmap_figure(
     component_color_file = cfg.get(
         "JSON_FILENAME_COMPONENT_COLORS", "nmf_component_color_map.json"
     )
-    print(f"Loading component colors from: {component_color_file}")
+    # print(f"Loading component colors from: {component_color_file}")
 
     comp_colors = _load_component_colors(component_color_file, n_comps, comp_order)
 
@@ -168,7 +165,7 @@ def _load_organ_system_data(json_filename: str) -> dict:
             data = json.load(f)
         return data["organ_system_groupings"]
     except Exception as e:
-        print(f"Error loading grouping data from {json_filename}: {e}")
+        # print(f"Error loading grouping data from {json_filename}: {e}")
         return {}
 
 
@@ -199,57 +196,47 @@ def _load_component_colors(
     json_filename: str, n_comps: int, comp_order: np.ndarray
 ) -> list:
     """Load component colors from JSON file or generate fallback colors."""
-    try:
-        if json_filename:
-            with open(json_filename, "r") as f:
-                color_map = json.load(f)
+    if json_filename:
+        with open(json_filename, "r") as f:
+            color_map = json.load(f)
 
-            print(f"Loaded component colors: {color_map}")
-            ordered_colors = []
-            auto_colors = component_palette(n_comps)
+        ordered_colors = []
+        auto_colors = component_palette(n_comps)
 
-            component_color_mapping = {}
+        component_color_mapping = {}
 
-            for i in comp_order:
-                comp_name = f"Comp_{i}"
-                alt_name1 = f"Component {i + 1}"
-                alt_name2 = f"Comp {i + 1}"
-                alt_name3 = str(i + 1)
+        for i in comp_order:
+            comp_name = f"Comp_{i}"
+            alt_name1 = f"Component {i + 1}"
+            alt_name2 = f"Comp {i + 1}"
+            alt_name3 = str(i + 1)
 
-                color = (
-                    color_map.get(comp_name)
-                    or color_map.get(alt_name1)
-                    or color_map.get(alt_name2)
-                    or color_map.get(alt_name3)
+            color = (
+                color_map.get(comp_name)
+                or color_map.get(alt_name1)
+                or color_map.get(alt_name2)
+                or color_map.get(alt_name3)
+            )
+
+            if color:
+                ordered_colors.append(color)
+                matched_key = next(
+                    k
+                    for k in [comp_name, alt_name1, alt_name2, alt_name3]
+                    if k in color_map and color_map[k] == color
                 )
-
-                if color:
-                    ordered_colors.append(color)
-                    matched_key = next(
-                        k
-                        for k in [comp_name, alt_name1, alt_name2, alt_name3]
-                        if k in color_map and color_map[k] == color
-                    )
-                    component_color_mapping[f"Component {i + 1}"] = {
-                        "color": color,
-                        "matched_key": matched_key,
-                    }
-                else:
-                    print(f"Warning: No color found for component {i}, using fallback")
-                    fallback_color = auto_colors[len(ordered_colors) % len(auto_colors)]
-                    ordered_colors.append(fallback_color)
-                    component_color_mapping[f"Component {i + 1}"] = {
-                        "color": fallback_color,
-                        "fallback": True,
-                    }
-
-            print(f"Component color mapping: {component_color_mapping}")
-            return ordered_colors
-    except Exception as e:
-        print(f"Error loading component colors: {e}. Using default palette.")
-        import traceback
-
-        traceback.print_exc()
+                component_color_mapping[f"Component {i + 1}"] = {
+                    "color": color,
+                    "matched_key": matched_key,
+                }
+            else:
+                fallback_color = auto_colors[len(ordered_colors) % len(auto_colors)]
+                ordered_colors.append(fallback_color)
+                component_color_mapping[f"Component {i + 1}"] = {
+                    "color": fallback_color,
+                    "fallback": True,
+                }
+        return ordered_colors
 
     return component_palette(n_comps)
 
@@ -478,14 +465,7 @@ def _configure_layout(
         height=max(900, n_comps * 25 + 300),
         width=1400,
         autosize=True,
-        margin=dict(l=80, r=80, t=200, b=100),
-        title=dict(
-            text="NMF Component Activities Across Samples",
-            y=0.99,
-            x=0.5,
-            xanchor="center",
-            yanchor="top",
-        ),
+        margin=dict(l=80, r=80, t=20, b=100),
         barmode="stack",
         hovermode="x unified",
         selectdirection="h",

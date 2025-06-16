@@ -13,27 +13,14 @@ def perform_umap_reduction(data, n_components=2, random_state=42):
         umap_result = umap.UMAP(
             n_components=n_components, random_state=random_state
         ).fit_transform(data)
-        if w and issubclass(w[-1].category, UserWarning):
-            print(f"UMAP Warning: {str(w[-1].message)}")
 
     return umap_result
 
 
-def create_umap_visualization(h_matrix, sample_ids, cancer_types, cancer_color_map):
+def create_umap_visualization(
+    umap_df, h_matrix, sample_ids, cancer_types, cancer_color_map
+):
     """Creates a UMAP visualization of the NMF components using jscatter."""
-    # Perform UMAP dimensionality reduction
-    umap_result = perform_umap_reduction(h_matrix)
-
-    # Create DataFrame with UMAP results and metadata
-    umap_df = pd.DataFrame(
-        {
-            "Sample ID": sample_ids,
-            "Cancer Type": cancer_types,
-            "UMAP-1": umap_result[:, 0],
-            "UMAP-2": umap_result[:, 1],
-        }
-    )
-
     # Ensure all cancer types have colors
     unique_cancer_types = sorted(list(set(cancer_types)))
     if not all(ct in cancer_color_map for ct in unique_cancer_types):
@@ -55,15 +42,13 @@ def create_umap_visualization(h_matrix, sample_ids, cancer_types, cancer_color_m
         color_by="Cancer Type",
         color_map=cancer_color_map,
         height=600,
-        width=800,
+        width=600,
         lasso_callback=True,  # This is important for selection to work
         selection_mode="lasso",  # Explicitly set lasso mode
     )
 
-    scatter_plot.tooltip(properties=["Sample ID", "Cancer Type"])
-    scatter_plot.size(
-        default=5
-    )
+    scatter_plot.tooltip(enable=True, properties=["Sample ID", "Cancer Type"])
+    scatter_plot.size(default=5)
     scatter_plot.options(
         {
             "aspectRatio": 1.0,

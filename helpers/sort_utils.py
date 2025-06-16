@@ -53,6 +53,7 @@ def get_organ_system_sort(
 ) -> np.ndarray:
     """Correctly sort by organ system, then by component within each group."""
     from nmf_vis_app.data_utils import load_cfg
+
     try:
         cfg = load_cfg(config_path)
         # It's safer to use the sample_ids to map to cancer codes than the full cancer_types string
@@ -94,7 +95,7 @@ def get_organ_system_sort(
         return np.array(final_order, dtype=int)
 
     except Exception as e:
-        print(f"Error in organ system sorting: {e}. Falling back to component sort.")
+        # print(f"Error in organ system sorting: {e}. Falling back to component sort.")
         comp_order = np.argsort(-H.sum(axis=0))
         H_ord = H[:, comp_order]
         return bar_sort_order(H_ord)
@@ -104,7 +105,6 @@ def get_embryonic_layer_sort(
     H: np.ndarray, cancer_types: list, config_path: str
 ) -> np.ndarray:
     """Sort by embryonic layer, then by component within each layer."""
-    print("Warning: Embryonic layer sorting not fully implemented yet.")
     # Fall back to component sorting for now
     comp_order = np.argsort(-H.sum(axis=0))
     H_ord = H[:, comp_order]
@@ -141,7 +141,4 @@ def get_sample_order(
         return get_embryonic_layer_sort(H, cancer_types, config_path)
 
     # Default to component sorting if method not recognized
-    print(
-        f"Warning: Sort method '{sort_method}' not recognized. Defaulting to component sort."
-    )
     return bar_sort_order(H_ord)

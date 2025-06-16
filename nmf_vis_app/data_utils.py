@@ -125,6 +125,8 @@ def load_all_data(cfg_path, sort_method):
     )
     cancer_color_map = load_cancer_colors(cfg.get("JSON_FILENAME_CANCER_TYPE_COLORS"))
 
+    umap_df = pd.read_parquet(cfg.get("UMAP_FILENAME"))
+
     # These would be loaded similarly from the other JSON files
     organ_systems = []
     organ_system_colors = {}
@@ -144,4 +146,5 @@ def load_all_data(cfg_path, sort_method):
         H_sorted,
         x_labels_short,
         component_order,
+        umap_df,
     )

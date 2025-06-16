@@ -25,7 +25,7 @@ def create_bar_chart(h_sorted, comp_colors, comp_order):
             color = comp_colors[color_key]
         else:
             # Log missing color but use a default
-            print(f"Warning: No color found for {color_key}")
+            # print(f"Warning: No color found for {color_key}")
             color = "#000000"  # Default to black if missing
 
         # Calculate position for stacked bars
@@ -104,8 +104,6 @@ def link_views(plots):
         plots[i].options({"regl_scatterplot_options": {"linkedViews": [plots[i + 1]]}})
 
 
-
-
 def create_scatterplot(cfg_path="config.json", sort_method="component"):
     """Creates the complete NMF visualization using Plotly and UMAP."""
 
@@ -122,12 +120,12 @@ def create_scatterplot(cfg_path="config.json", sort_method="component"):
         h_sorted,
         x_labels_short,
         comp_order,
+        umap_df,
     ) = load_all_data(cfg_path, sort_method)
 
     # Create UMAP visualization with lasso selection enabled
     umap_scatter, umap_df = create_umap_visualization(
-        h_matrix, sample_ids, cancer_types, cancer_color_map
+        umap_df, h_matrix, sample_ids, cancer_types, cancer_color_map
     )
 
     return umap_scatter
-
