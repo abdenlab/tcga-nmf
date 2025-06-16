@@ -5,7 +5,7 @@ Explore ATAC-seq data from 797 cancer samples.
 This project requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 
-Set up your environment.
+Set up your Python environment.
 
 ```sh
 git clone https://github.com/abdenlab/tcga-nmf.git
