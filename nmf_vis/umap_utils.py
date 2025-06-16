@@ -1,20 +1,7 @@
 import jscatter
 import pandas as pd
 import seaborn as sns
-import umap
 import warnings
-
-
-def perform_umap_reduction(data, n_components=2, random_state=42):
-    """Performs UMAP dimensionality reduction on the input data."""
-    umap_result = None
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        umap_result = umap.UMAP(
-            n_components=n_components, random_state=random_state
-        ).fit_transform(data)
-
-    return umap_result
 
 
 def create_umap_visualization(

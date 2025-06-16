@@ -2,8 +2,8 @@ import jscatter
 import numpy as np
 import pandas as pd
 
-from nmf_vis_app.umap_utils import create_umap_visualization
-from nmf_vis_app.data_utils import load_all_data
+from nmf_vis.umap_utils import create_umap_visualization
+from nmf_vis.data_utils import load_all_data
 
 
 def create_bar_chart(h_sorted, comp_colors, comp_order):
@@ -104,7 +104,7 @@ def link_views(plots):
         plots[i].options({"regl_scatterplot_options": {"linkedViews": [plots[i + 1]]}})
 
 
-def create_scatterplot(cfg_path="config.json", sort_method="component"):
+def create_scatterplot(cfg_path="conf/config.json", sort_method="component"):
     """Creates the complete NMF visualization using Plotly and UMAP."""
 
     (

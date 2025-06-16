@@ -7,8 +7,8 @@ from typing import Final, List, Tuple, Dict
 import numpy as np
 import pandas as pd
 
-from helpers.sort_utils import get_sample_order
-from helpers.color_utils import load_cancer_colors, component_palette
+from nmf_vis.sort_utils import get_sample_order
+from nmf_vis.color_utils import load_cancer_colors, component_palette
 
 
 cache: Final[dict[Path, pd.DataFrame]] = {}
@@ -115,7 +115,7 @@ def load_all_data(cfg_path, sort_method):
         [label[:4] for label in np.array(sample_ids)[sample_order]]
     )
 
-    with open("config.json", "r") as f:
+    with open("conf/config.json", "r") as f:
         cfg = json.load(f)
 
     component_colors = _load_component_colors(
