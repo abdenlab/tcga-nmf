@@ -1,20 +1,9 @@
 import jscatter
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import umap
-import warnings
 
-
-def perform_umap_reduction(data, n_components=2, random_state=42):
-    """Performs UMAP dimensionality reduction on the input data."""
-    umap_result = None
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        umap_result = umap.UMAP(
-            n_components=n_components, random_state=random_state
-        ).fit_transform(data)
-
-    return umap_result
+from nmf_vis.data_utils import load_all_data
 
 
 def create_umap_visualization(
@@ -65,3 +54,30 @@ def create_umap_visualization(
     umap_df["Sample ID"] = sample_ids
 
     return scatter_plot, umap_df
+
+
+def create_scatterplot(cfg_path="conf/config.json", sort_method="component"):
+    """Creates the complete NMF visualization using Plotly and UMAP."""
+
+    (
+        h_matrix,
+        sample_ids,
+        cancer_types,
+        comp_colors,
+        cancer_color_map,
+        organ_systems,
+        organ_system_colors,
+        embryonic_layers,
+        embryonic_layer_colors,
+        h_sorted,
+        x_labels_short,
+        comp_order,
+        umap_df,
+    ) = load_all_data(cfg_path, sort_method)
+
+    # Create UMAP visualization with lasso selection enabled
+    umap_scatter, umap_df = create_umap_visualization(
+        umap_df, h_matrix, sample_ids, cancer_types, cancer_color_map
+    )
+
+    return umap_scatter

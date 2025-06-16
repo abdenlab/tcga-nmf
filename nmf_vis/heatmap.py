@@ -8,9 +8,9 @@ import plotly.graph_objects as go
 from plotly.graph_objs import FigureWidget
 from plotly.subplots import make_subplots
 
-from nmf_vis_app.data_utils import _get_prepared_data, load_cfg
-from helpers.sort_utils import get_sample_order
-from helpers.color_utils import component_palette, distinct_palette, load_cancer_colors
+from nmf_vis.data_utils import _get_prepared_data, load_cfg
+from nmf_vis.sort_utils import get_sample_order
+from nmf_vis.color_utils import component_palette, distinct_palette, load_cancer_colors
 
 
 def create_heatmap(cfg_path="config.json", sort_method="component", sample_ids=None):
@@ -37,11 +37,11 @@ def create_heatmap_figure(
     # --- load data ------------------------------------------------------ #
     if selected_sample_ids is None:
         H, sample_ids_from_file, cancer_types = _get_prepared_data(
-            Path("comps/all_H_component_contributions.csv"),
+            Path("data/all_H_component_contributions.csv"),
         )
     else:
         H, sample_ids_from_file, cancer_types = _get_prepared_data(
-            Path("comps/all_H_component_contributions.csv"),
+            Path("data/all_H_component_contributions.csv"),
             selection=selected_sample_ids,
         )
     n_samples, n_comps = H.shape

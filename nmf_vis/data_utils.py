@@ -7,8 +7,8 @@ from typing import Final, List, Tuple, Dict
 import numpy as np
 import pandas as pd
 
-from helpers.sort_utils import get_sample_order
-from helpers.color_utils import load_cancer_colors, component_palette
+from nmf_vis.sort_utils import get_sample_order
+from nmf_vis.color_utils import load_cancer_colors, component_palette
 
 
 cache: Final[dict[Path, pd.DataFrame]] = {}
@@ -16,37 +16,6 @@ cache: Final[dict[Path, pd.DataFrame]] = {}
 
 def load_cfg(path: str | Path = "config.json") -> dict:
     return json.load(open(path, "r"))
-
-
-def discover_nmf_k_files(cfg: dict) -> List[Dict[str, str]]:
-    """
-    Discover NMF files with different K values in the comps folder.
-
-    Returns a list of dictionaries with K-value info:
-    [{"filename": "file.csv", "k_value": "26", "path": "/full/path/file.csv"}, ...]
-    """
-    data_dir = cfg.get("NMF_DATA_DIRECTORY", "comps")
-    file_pattern = cfg.get("NMF_FILE_PATTERN", "*.csv")
-
-    pattern = str(Path(data_dir) / file_pattern)
-
-    k_files = []
-    for file_path in glob.glob(pattern):
-        path = Path(file_path)
-        k_match = re.search(r"_[kK](\d+)\.csv$", path.name)
-        if k_match:
-            k_value = k_match.group(1)
-            k_files.append(
-                {
-                    "filename": path.name,
-                    "k_value": int(k_value),
-                    "path": str(path),
-                    "display_name": f"K = {k_value}",
-                }
-            )
-
-    k_files.sort(key=lambda x: int(x["k_value"]))
-    return k_files
 
 
 def _get_dataframe(filepath: Path) -> pd.DataFrame:
@@ -101,7 +70,7 @@ def load_all_data(cfg_path, sort_method):
     """Loads and prepares all data needed for the visualization."""
     cfg = load_cfg(cfg_path)
     H, sample_ids, cancer_types = _get_prepared_data(
-        Path(cfg.get("DEFAULT_CSV_FILENAME", "comps/all_H_component_contributions.csv"))
+        Path(cfg.get("DEFAULT_CSV_FILENAME", "data/all_H_component_contributions.csv"))
     )
     n_samples, n_components = H.shape
 
@@ -114,9 +83,6 @@ def load_all_data(cfg_path, sort_method):
     x_labels_short = np.array(
         [label[:4] for label in np.array(sample_ids)[sample_order]]
     )
-
-    with open("config.json", "r") as f:
-        cfg = json.load(f)
 
     component_colors = _load_component_colors(
         cfg.get("JSON_FILENAME_COMPONENT_COLORS", "nmf_component_color_map.json"),
