@@ -1,107 +1,59 @@
 import jscatter
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
-from nmf_vis.umap_utils import create_umap_visualization
 from nmf_vis.data_utils import load_all_data
 
 
-def create_bar_chart(h_sorted, comp_colors, comp_order):
-    """Creates stacked bar charts colored by component."""
-    n_samples, n_comps = h_sorted.shape
-    h_proportional = h_sorted / h_sorted.sum(axis=1, keepdims=True)
+def create_umap_visualization(
+    umap_df, h_matrix, sample_ids, cancer_types, cancer_color_map
+):
+    """Creates a UMAP visualization of the NMF components using jscatter."""
+    # Ensure all cancer types have colors
+    unique_cancer_types = sorted(list(set(cancer_types)))
+    if not all(ct in cancer_color_map for ct in unique_cancer_types):
+        color_palette = sns.color_palette("turbo", len(unique_cancer_types))
+        # Convert RGB tuples to hex colors
+        color_palette = [
+            f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+            for r, g, b in color_palette
+        ]
+        missing_types = [ct for ct in unique_cancer_types if ct not in cancer_color_map]
+        for i, ct in enumerate(missing_types):
+            cancer_color_map[ct] = color_palette[i % len(color_palette)]
 
-    all_bars = []
-
-    # Create a separate scatter for each component (for proper coloring)
-    for i in range(n_comps):
-        comp_idx = comp_order[i]
-
-        # Access color using the key format from the JSON
-        color_key = f"Comp_{comp_idx}"
-
-        # Use the color from comp_colors dictionary
-        if color_key in comp_colors:
-            color = comp_colors[color_key]
-        else:
-            # Log missing color but use a default
-            # print(f"Warning: No color found for {color_key}")
-            color = "#000000"  # Default to black if missing
-
-        # Calculate position for stacked bars
-        if i == 0:
-            y_pos = h_proportional[:, i] / 2
-            heights = h_proportional[:, i]
-        else:
-            prev_sum = np.sum(h_proportional[:, :i], axis=1)
-            heights = h_proportional[:, i]
-            y_pos = prev_sum + heights / 2
-
-        df = pd.DataFrame(
-            {
-                "x": np.arange(n_samples),
-                "y": y_pos,
-                "height": heights,
-                "component": [f"Comp {comp_idx + 1}"] * n_samples,
-            }
-        )
-
-        scatter = jscatter.Scatter(
-            data=df, x="x", y="y", color=[color] * len(df), height=150
-        )
-
-        scatter.options(
-            {
-                "regl_scatterplot_options": {
-                    "shape": "rectangle",
-                    "size": {"width": 0.9, "height": "height"},
-                    "showLegend": True,
-                    "xAxis": {"showTickLabels": False},
-                    "yAxis": {"domain": [0, 1], "showTickLabels": True},
-                }
-            }
-        )
-
-        all_bars.append(scatter)
-
-    return all_bars
-
-
-def create_annotation_strip(data, colormap):
-    """Creates an annotation strip (1D heatmap) using jupyter_scatter."""
-    # Create a DataFrame with the data
-    df = pd.DataFrame(
-        {"x": np.arange(len(data)), "y": np.zeros(len(data)), "category": data}
+    # Create the scatter plot with lasso selection enabled
+    scatter_plot = jscatter.Scatter(
+        data=umap_df,
+        x="UMAP-1",
+        y="UMAP-2",
+        color_by="Cancer Type",
+        color_map=cancer_color_map,
+        height=600,
+        width=600,
+        lasso_callback=True,  # This is important for selection to work
+        selection_mode="lasso",  # Explicitly set lasso mode
     )
 
-    scatter = jscatter.Scatter(
-        data=df,
-        x="x",
-        y="y",
-        color_by="category",
-        color_map=colormap,
-        height=30,
-        show_legend=False,
-    )
-
-    # Use options instead of x_axis/y_axis
-    scatter.options(
+    scatter_plot.tooltip(enable=True, properties=["Sample ID", "Cancer Type"])
+    scatter_plot.size(default=5)
+    scatter_plot.options(
         {
+            "aspectRatio": 1.0,
             "regl_scatterplot_options": {
-                "xAxis": {"showTickLabels": False},
-                "yAxis": {"showTickLabels": False},
-            }
+                "showLegend": True,
+                "xAxis": {"showGrid": True},
+                "yAxis": {"showGrid": True},
+                "title": "UMAP of NMF Components",
+            },
         }
     )
 
-    return scatter
+    # Make sure to add sample_ids to the DataFrame
+    umap_df["Sample ID"] = sample_ids
 
-
-def link_views(plots):
-    """Links the pan and zoom of multiple jupyter_scatter plots."""
-    # Update this if the linking mechanism has changed too
-    for i in range(len(plots) - 1):
-        plots[i].options({"regl_scatterplot_options": {"linkedViews": [plots[i + 1]]}})
+    return scatter_plot, umap_df
 
 
 def create_scatterplot(cfg_path="conf/config.json", sort_method="component"):
