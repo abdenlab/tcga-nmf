@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "anywidget>=0.9.18",
+    "higlass-python",
     "ipywidgets>=8.1.7",
     "jupyter-scatter[all]>=0.22.0",
     "jupyterlab>=4.4.3",
