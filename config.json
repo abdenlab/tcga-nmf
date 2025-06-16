@@ -6,5 +6,6 @@
   "JSON_FILENAME_COMPONENT_COLORS": "nmf_component_color_map.json",
   "JSON_FILENAME_ORGAN_SYSTEM": "tissue_source_tcga.json",
   "JSON_FILENAME_EMBRYONIC_LAYER": "emb.json",
-  "JSON_FILENAME_VOCAB": "vocab.json"
+  "JSON_FILENAME_VOCAB": "vocab.json",
+  "UMAP_FILENAME": "comps/umap.parquet"
 }
